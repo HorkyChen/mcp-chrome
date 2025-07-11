@@ -1,0 +1,22 @@
+{
+  "name": "mcp-chrome-bridge-python",
+  "version": "1.0.0",
+  "description": "Chrome Native-Messaging host (Python)",
+  "main": "main.py",
+  "scripts": {
+    "install": "pip install -r requirements.txt",
+    "start": "python main.py",
+    "start-stdio": "python mcp_server_stdio.py"
+  },
+  "keywords": [
+    "mcp",
+    "chrome",
+    "browser",
+    "python"
+  ],
+  "author": "horky",
+  "license": "MIT",
+  "engines": {
+    "python": ">=3.8"
+  }
+}
