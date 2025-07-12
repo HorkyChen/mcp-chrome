@@ -231,7 +231,7 @@ class Server:
                 app=self.app,
                 host=HOST,
                 port=port,
-                log_level="info"
+                log_level="error"  # Reduce log noise
             )
             server = uvicorn.Server(config)
 
@@ -240,10 +240,13 @@ class Server:
             self.is_running = True
 
             # Wait a bit for server to start
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(1.0)  # Give more time for server to start
+
+            self.logger.info(f"HTTP server is running on {HOST}:{port}")
 
         except Exception as e:
             self.is_running = False
+            self.logger.error(f"Failed to start HTTP server: {e}")
             raise e
 
     async def stop(self):

@@ -26,16 +26,26 @@ python cli.py register
 
 ## Usage
 
-### Start the main server (native messaging + HTTP):
-
+### 1. Native Messaging Mode (Production - like TypeScript version)
+This is the main mode that works with Chrome extension:
 ```bash
 python cli.py start
 # or directly:
 python main.py
 ```
+This starts the native messaging host that communicates with Chrome via stdin/stdout. The HTTP server will automatically start when the Chrome extension connects.
 
-### Start the STDIO MCP server:
+### 2. Standalone HTTP Server (Testing)
+For testing the HTTP API without Chrome extension:
+```bash
+python cli.py start-http
+# or directly:
+python http_server_standalone.py
+```
+This starts only the HTTP server with mock responses on port 12306.
 
+### 3. STDIO MCP Server (Direct MCP integration)
+For direct MCP client integration:
 ```bash
 python cli.py start-stdio
 # or directly:

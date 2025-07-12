@@ -26,8 +26,8 @@ class NativeMessageType(Enum):
 
 
 # Server configuration
-NATIVE_SERVER_PORT = 56889
-HOST = "127.0.0.1"
+NATIVE_SERVER_PORT = 12306
+HOST = "0.0.0.0"
 
 # Timeout constants (in seconds)
 DEFAULT_REQUEST_TIMEOUT = 15

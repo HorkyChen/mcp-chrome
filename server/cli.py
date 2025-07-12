@@ -147,11 +147,14 @@ def main():
     register_parser.add_argument("-s", "--system", action="store_true", help="Use system-level installation")
 
     # Unregister command
-    unregister_parser = subparsers.add_parser("unregister", help="Unregister native messaging host")
-    unregister_parser.add_argument("-s", "--system", action="store_true", help="Remove from system-level")
-
-    # Start command
+    unregister_parser = subparsers.add_parser("unregisMock response from standalone serverter", help="Unregister native messaging host")
+    unregister_parser.add_argument("-s", "--system", action="store_true", help="Remove from system-level")    # Start command
     start_parser = subparsers.add_parser("start", help="Start the MCP server")
+
+    # Start HTTP server only
+    http_parser = subparsers.add_parser("start-http", help="Start only the HTTP server (for testing)")
+    http_parser.add_argument("--real-native-host", action="store_true",
+                           help="Use real NativeMessagingHost instead of mock (requires Chrome extension)")
 
     # Start STDIO command
     stdio_parser = subparsers.add_parser("start-stdio", help="Start the STDIO MCP server")
@@ -168,6 +171,14 @@ def main():
             asyncio.run(start_main())
         except KeyboardInterrupt:
             print("\nServer stopped")
+    elif args.command == "start-http":
+        from http_server_standalone import main as http_main
+        try:
+            # Pass the real-native-host flag
+            use_real_host = getattr(args, 'real_native_host', False)
+            asyncio.run(http_main(use_real_native_host=use_real_host))
+        except KeyboardInterrupt:
+            print("\nHTTP server stopped")
     elif args.command == "start-stdio":
         from mcp_server_stdio import main as stdio_main
         try:

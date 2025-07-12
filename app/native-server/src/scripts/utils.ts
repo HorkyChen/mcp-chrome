@@ -407,6 +407,7 @@ export async function registerWithElevatedPermissions(): Promise<void> {
         }
       } else {
         // 没有管理员权限，打印手动操作提示
+        const regCommand = `reg delete "${registryKey}" /f`;
         console.log(
           colorText(
             '⚠️ Administrator privileges required for Windows registry modification',
@@ -430,4 +431,178 @@ export async function registerWithElevatedPermissions(): Promise<void> {
     console.error(colorText(`注册失败: ${error.message}`, 'red'));
     throw error;
   }
+}
+
+/**
+ * 尝试取消用户级别的Native Messaging主机注册
+ */
+export async function tryUnregisterUserLevelHost(): Promise<boolean> {
+  try {
+    console.log(colorText('Attempting to unregister user-level Native Messaging host...', 'blue'));
+
+    // 1. 确定清单文件路径
+    const manifestPath = getUserManifestPath();
+
+    // 2. 检查清单文件是否存在
+    if (fs.existsSync(manifestPath)) {
+      // 删除清单文件
+      fs.unlinkSync(manifestPath);
+      console.log(colorText(`✓ Removed manifest file: ${manifestPath}`, 'green'));
+    } else {
+      console.log(colorText(`⚠️ Manifest file not found: ${manifestPath}`, 'yellow'));
+    }
+
+    // 3. Windows平台 - 删除注册表项
+    if (os.platform() === 'win32') {
+      const registryKey = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${HOST_NAME}`;
+      try {
+        const regCommand = `reg delete "${registryKey}" /f`;
+        console.log(colorText(`Removing registry entry: ${registryKey}`, 'blue'));
+        execSync(regCommand, { stdio: 'pipe' });
+        console.log(colorText('✓ Successfully removed Windows registry entry', 'green'));
+      } catch (error: any) {
+        // 如果注册表项不存在，这是正常的
+        if (error.message.includes('The system was unable to find the specified registry key')) {
+          console.log(colorText('⚠️ Registry entry was not found (already removed)', 'yellow'));
+        } else {
+          console.log(colorText(`⚠️ Unable to remove Windows registry entry: ${error.message}`, 'yellow'));
+          return false;
+        }
+      }
+    }
+
+    console.log(colorText('Successfully unregistered user-level Native Messaging host!', 'green'));
+    return true;
+  } catch (error) {
+    console.log(
+      colorText(
+        `User-level unregistration failed: ${error instanceof Error ? error.message : String(error)}`,
+        'red',
+      ),
+    );
+    return false;
+  }
+}
+
+/**
+ * 使用提升权限取消注册系统级清单
+ */
+export async function unregisterWithElevatedPermissions(): Promise<void> {
+  try {
+    console.log(colorText('Attempting to unregister system-level manifest...', 'blue'));
+
+    // 1. 获取系统级清单路径
+    const manifestPath = getSystemManifestPath();
+
+    // 2. 检测是否已经有管理员权限
+    const isRoot = process.getuid && process.getuid() === 0; // Unix/Linux/Mac
+    const hasAdminRights = process.platform === 'win32' ? isAdmin() : false; // Windows平台检测管理员权限
+    const hasElevatedPermissions = isRoot || hasAdminRights;
+
+    if (hasElevatedPermissions) {
+      // 已经有管理员权限，直接删除文件
+      try {
+        if (fs.existsSync(manifestPath)) {
+          fs.unlinkSync(manifestPath);
+          console.log(colorText(`✓ Removed system manifest file: ${manifestPath}`, 'green'));
+        } else {
+          console.log(colorText(`⚠️ System manifest file not found: ${manifestPath}`, 'yellow'));
+        }
+      } catch (error: any) {
+        console.error(
+          colorText(`System-level manifest removal failed: ${error.message}`, 'red'),
+        );
+        throw error;
+      }
+    } else {
+      // 没有管理员权限，打印手动操作提示
+      console.log(
+        colorText('⚠️ Administrator privileges required for system-level uninstallation', 'yellow'),
+      );
+      console.log(
+        colorText(
+          'Please run one of the following commands with administrator privileges:',
+          'blue',
+        ),
+      );
+
+      if (os.platform() === 'win32') {
+        console.log(colorText('  1. Open Command Prompt as Administrator and run:', 'blue'));
+        console.log(colorText(`     del "${manifestPath}"`, 'cyan'));
+      } else {
+        console.log(colorText('  1. Run with sudo:', 'blue'));
+        console.log(colorText(`     sudo rm "${manifestPath}"`, 'cyan'));
+      }
+
+      console.log(
+        colorText('  2. Or run the unregistration command with elevated privileges:', 'blue'),
+      );
+      console.log(colorText(`     sudo ${COMMAND_NAME} unregister --system`, 'cyan'));
+
+      throw new Error('Administrator privileges required for system-level uninstallation');
+    }
+
+    // 3. Windows特殊处理 - 删除系统级注册表
+    if (os.platform() === 'win32') {
+      const registryKey = `HKLM\\Software\\Google\\Chrome\\NativeMessagingHosts\\${HOST_NAME}`;
+
+      if (hasElevatedPermissions) {
+        // 已经有管理员权限，直接执行注册表命令
+        try {
+          const regCommand = `reg delete "${registryKey}" /f`;
+          console.log(colorText(`Removing system registry entry: ${registryKey}`, 'blue'));
+          execSync(regCommand, { stdio: 'pipe' });
+          console.log(colorText('✓ Windows system registry entry removed successfully!', 'green'));
+        } catch (error: any) {
+          // 如果注册表项不存在，这是正常的
+          if (error.message.includes('The system was unable to find the specified registry key')) {
+            console.log(colorText('⚠️ System registry entry was not found (already removed)', 'yellow'));
+          } else {
+            console.error(
+              colorText(`Windows system registry entry removal failed: ${error.message}`, 'red'),
+            );
+            throw error;
+          }
+        }
+      } else {
+        // 没有管理员权限，打印手动操作提示
+        const regCommand = `reg delete "${registryKey}" /f`;
+        console.log(
+          colorText(
+            '⚠️ Administrator privileges required for Windows registry modification',
+            'yellow',
+          ),
+        );
+        console.log(colorText('Please run the following command as Administrator:', 'blue'));
+        console.log(colorText(`  ${regCommand}`, 'cyan'));
+        console.log(colorText('Or run the unregistration command with elevated privileges:', 'blue'));
+        console.log(
+          colorText(
+            `  Run Command Prompt as Administrator and execute: ${COMMAND_NAME} unregister --system`,
+            'cyan',
+          ),
+        );
+
+        throw new Error('Administrator privileges required for Windows registry modification');
+      }
+    }
+
+    console.log(colorText('System-level Native Messaging host unregistered successfully!', 'green'));
+  } catch (error: any) {
+    console.error(colorText(`取消注册失败: ${error.message}`, 'red'));
+    throw error;
+  }
+}
+
+/**
+ * 检查Native Messaging主机的注册状态
+ */
+export function checkRegistrationStatus(): { userLevel: boolean; systemLevel: boolean } {
+  const userManifestPath = getUserManifestPath();
+  const systemManifestPath = getSystemManifestPath();
+
+  const userLevel = fs.existsSync(userManifestPath);
+  const systemLevel = fs.existsSync(systemManifestPath);
+
+  return { userLevel, systemLevel };
 }

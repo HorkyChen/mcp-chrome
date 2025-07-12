@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 async def main():
     """Main entry point"""
     try:
-        # Associate server and native host
+        # Associate server and native host (like TypeScript version)
         server_instance.set_native_host(native_messaging_host_instance)
         native_messaging_host_instance.set_server(server_instance)
 
@@ -34,8 +34,25 @@ async def main():
         for sig in [signal.SIGINT, signal.SIGTERM]:
             signal.signal(sig, lambda s, f: signal_handler())
 
-        # Start native messaging host
-        await native_messaging_host_instance.start()
+        # Start HTTP server immediately, don't wait for Chrome extension START message
+        from constants import NATIVE_SERVER_PORT
+        logger.info(f"Starting HTTP server on port {NATIVE_SERVER_PORT}")
+        await server_instance.start(NATIVE_SERVER_PORT, native_messaging_host_instance)
+        logger.info(f"HTTP server started successfully on http://127.0.0.1:{NATIVE_SERVER_PORT}")        # Then start native messaging host for Chrome extension communication
+        logger.info("Starting native messaging host...")
+        logger.info("Chrome extension can now connect to communicate with the server")
+
+        # Keep native messaging host running in a loop to handle reconnections
+        while True:
+            try:
+                # Start native messaging host (this will block until Chrome disconnects)
+                await native_messaging_host_instance.start()
+            except Exception as e:
+                logger.error(f"Native messaging host error: {e}")
+
+            # Chrome extension disconnected, wait a bit and try to restart
+            logger.info("Chrome extension disconnected, waiting for reconnection...")
+            await asyncio.sleep(1)  # Brief pause before attempting restart
 
     except Exception as e:
         logger.error(f"Fatal error in main(): {e}")
@@ -69,6 +86,7 @@ if __name__ == "__main__":
     loop.set_exception_handler(handle_unhandled_rejection)
 
     try:
+        print("MCP Server is running....")
         # Run main
         loop.run_until_complete(main())
     except KeyboardInterrupt:

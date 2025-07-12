@@ -323,3 +323,141 @@ manifest.json
 - 安装命令
 - 错误信息
 - 尝试过的解决方法
+
+## 取消注册 Native Messaging Host
+
+如果您想要取消注册 Chrome MCP Bridge 的 Native Messaging Host，可以使用以下命令：
+
+### 取消注册流程图
+
+```
+取消注册流程
+├─ 检查注册状态 (mcp-chrome-bridge status)
+│  ├─ 用户级别已注册 → 可以直接取消用户级别注册
+│  ├─ 系统级别已注册 → 需要管理员权限取消系统级别注册
+│  └─ 都未注册 → 无需操作
+│
+├─ 用户级别取消注册 (mcp-chrome-bridge unregister)
+│  ├─ 删除用户级别清单文件
+│  ├─ Windows: 删除用户级别注册表项
+│  └─ 完成取消注册
+│
+└─ 系统级别取消注册 (mcp-chrome-bridge unregister --system)
+   ├─ 检查管理员权限
+   ├─ 删除系统级别清单文件
+   ├─ Windows: 删除系统级别注册表项
+   └─ 完成取消注册
+```
+
+### 1. 检查注册状态
+
+在取消注册之前，建议先检查当前的注册状态：
+
+```bash
+mcp-chrome-bridge status
+```
+
+此命令会显示当前的注册状态，包括用户级别和系统级别的注册情况。
+
+### 2. 取消用户级别注册
+
+如果您之前使用用户级别注册，可以直接运行：
+
+```bash
+mcp-chrome-bridge unregister
+```
+
+这将：
+- 删除用户级别的清单文件
+- 在 Windows 上删除用户级别的注册表项
+- 不需要管理员权限
+
+### 3. 取消系统级别注册
+
+如果您之前使用系统级别注册，需要使用管理员权限：
+
+#### 方式一：使用 `--system` 参数（推荐）
+
+```bash
+mcp-chrome-bridge unregister --system
+```
+
+#### 方式二：直接使用管理员权限
+
+**Windows**：
+以管理员身份运行命令提示符或 PowerShell，然后执行：
+
+```
+mcp-chrome-bridge unregister
+```
+
+**macOS/Linux**：
+使用 sudo 命令：
+
+```
+sudo mcp-chrome-bridge unregister
+```
+
+### 4. 完全清理
+
+如果您同时注册了用户级别和系统级别，需要分别取消注册：
+
+```bash
+# 取消用户级别注册
+mcp-chrome-bridge unregister
+
+# 取消系统级别注册
+mcp-chrome-bridge unregister --system
+```
+
+### 取消注册后验证
+
+取消注册完成后，可以再次运行状态检查命令来验证：
+
+```bash
+mcp-chrome-bridge status
+```
+
+应该显示所有级别都是 "Not registered ✗"。
+
+### 文件和注册表清理位置
+
+取消注册会删除以下文件和注册表项：
+
+#### 清单文件位置
+
+**用户级别**：
+- Windows: `%APPDATA%\Google\Chrome\NativeMessagingHosts\com.chrome-mcp.native-host.json`
+- macOS: `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.chrome-mcp.native-host.json`
+- Linux: `~/.config/google-chrome/NativeMessagingHosts/com.chrome-mcp.native-host.json`
+
+**系统级别**：
+- Windows: `%ProgramFiles%\Google\Chrome\NativeMessagingHosts\com.chrome-mcp.native-host.json`
+- macOS: `/Library/Google/Chrome/NativeMessagingHosts/com.chrome-mcp.native-host.json`
+- Linux: `/etc/opt/chrome/native-messaging-hosts/com.chrome-mcp.native-host.json`
+
+#### Windows 注册表项
+
+**用户级别**：
+- `HKEY_CURRENT_USER\Software\Google\Chrome\NativeMessagingHosts\com.chrome-mcp.native-host`
+
+**系统级别**：
+- `HKEY_LOCAL_MACHINE\Software\Google\Chrome\NativeMessagingHosts\com.chrome-mcp.native-host`
+
+### 故障排除
+
+如果取消注册过程中遇到问题：
+
+1. **权限错误**：
+   - 确保有足够权限删除文件和注册表项
+   - 使用管理员权限重试
+
+2. **文件不存在**：
+   - 这是正常的，说明已经被删除或从未注册过
+
+3. **注册表访问失败**（Windows）：
+   - 检查注册表访问权限
+   - 尝试手动删除注册表项
+
+4. **手动清理**：
+   如果自动取消注册失败，可以手动删除上述文件和注册表项。

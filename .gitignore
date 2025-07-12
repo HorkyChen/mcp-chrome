@@ -37,3 +37,8 @@ false/
 metadata-v1.3/
 registry.npmmirror.com/
 registry.npmjs.com/
+
+__pycache__
+*.pyc
+*.pyo
+*.pyd
