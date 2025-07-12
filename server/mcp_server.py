@@ -31,6 +31,10 @@ class MCPServer:
             """Handle tool calls"""
             return await self.handle_tool_call(name, arguments)
 
+    async def get_tools_list(self) -> List[Tool]:
+        """Get the list of available tools"""
+        return [Tool(**schema) for schema in TOOL_SCHEMAS]
+
     async def handle_tool_call(self, name: str, args: Dict[str, Any]) -> CallToolResult:
         """Handle tool call by forwarding to Chrome extension"""
         try:

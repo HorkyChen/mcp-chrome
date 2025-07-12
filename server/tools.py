@@ -29,7 +29,7 @@ class ToolNames:
     CONSOLE = 'chrome_console'
 
 
-# Tool schemas - simplified for Python implementation
+# Tool schemas - matching TypeScript implementation
 TOOL_SCHEMAS = [
     {
         "name": ToolNames.GET_WINDOWS_AND_TABS,
@@ -57,7 +57,7 @@ TOOL_SCHEMAS = [
     },
     {
         "name": ToolNames.SCREENSHOT,
-        "description": "Take a screenshot of the current page or a specific element",
+        "description": "Take a screenshot of the current page or a specific element(if you want to see the page, recommend to use chrome_get_web_content first)",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -65,9 +65,36 @@ TOOL_SCHEMAS = [
                 "selector": {"type": "string", "description": "CSS selector for element to screenshot"},
                 "width": {"type": "number", "description": "Width in pixels (default: 800)"},
                 "height": {"type": "number", "description": "Height in pixels (default: 600)"},
-                "storeBase64": {"type": "boolean", "description": "return screenshot in base64 format (default: false)"},
+                "storeBase64": {"type": "boolean", "description": "return screenshot in base64 format (default: false) if you want to see the page, recommend set this to be true"},
                 "fullPage": {"type": "boolean", "description": "Store screenshot of the entire page (default: true)"},
-                "savePng": {"type": "boolean", "description": "Save screenshot as PNG file (default: true)"}
+                "savePng": {"type": "boolean", "description": "Save screenshot as PNG file (default: true)，if you want to see the page, recommend set this to be false, and set storeBase64 to be true"}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": ToolNames.CLOSE_TABS,
+        "description": "Close one or more browser tabs",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tabIds": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Array of tab IDs to close. If not provided, will close the active tab."
+                },
+                "url": {"type": "string", "description": "Close tabs matching this URL. Can be used instead of tabIds."}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": ToolNames.GO_BACK_OR_FORWARD,
+        "description": "Navigate back or forward in browser history",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "isForward": {"type": "boolean", "description": "Go forward in history if true, go back if false (default: false)"}
             },
             "required": []
         }
@@ -92,10 +119,10 @@ TOOL_SCHEMAS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "selector": {"type": "string", "description": "CSS selector for the element to click"},
+                "selector": {"type": "string", "description": "CSS selector for the element to click. Either selector or coordinates must be provided. if coordinates are not provided, the selector must be provided."},
                 "coordinates": {
                     "type": "object",
-                    "description": "Coordinates to click at (relative to viewport)",
+                    "description": "Coordinates to click at (relative to viewport). If provided, takes precedence over selector.",
                     "properties": {
                         "x": {"type": "number", "description": "X coordinate relative to the viewport"},
                         "y": {"type": "number", "description": "Y coordinate relative to the viewport"}
@@ -121,6 +148,19 @@ TOOL_SCHEMAS = [
         }
     },
     {
+        "name": ToolNames.GET_INTERACTIVE_ELEMENTS,
+        "description": "Get interactive elements from the current page",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "textQuery": {"type": "string", "description": "Text to search for within interactive elements (fuzzy search)"},
+                "selector": {"type": "string", "description": "CSS selector to filter interactive elements. Takes precedence over textQuery if both are provided."},
+                "includeCoordinates": {"type": "boolean", "description": "Include element coordinates in the response (default: true)"}
+            },
+            "required": []
+        }
+    },
+    {
         "name": ToolNames.NETWORK_REQUEST,
         "description": "Send a network request from the browser with cookies and other browser context",
         "inputSchema": {
@@ -136,13 +176,53 @@ TOOL_SCHEMAS = [
         }
     },
     {
+        "name": ToolNames.NETWORK_DEBUGGER_START,
+        "description": "Start capturing network requests from a web page using Chrome Debugger API（with responseBody）",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to capture network requests from. If not provided, uses the current active tab"}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": ToolNames.NETWORK_DEBUGGER_STOP,
+        "description": "Stop capturing network requests using Chrome Debugger API and return the captured data",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": ToolNames.NETWORK_CAPTURE_START,
+        "description": "Start capturing network requests from a web page using Chrome webRequest API(without responseBody)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to capture network requests from. If not provided, uses the current active tab"}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": ToolNames.NETWORK_CAPTURE_STOP,
+        "description": "Stop capturing network requests using webRequest API and return the captured data",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
         "name": ToolNames.KEYBOARD,
         "description": "Simulate keyboard events in the browser",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "keys": {"type": "string", "description": "Keys to simulate (e.g., 'Enter', 'Ctrl+C', 'A,B,C' for sequence)"},
-                "selector": {"type": "string", "description": "CSS selector for the element to send keyboard events to"},
+                "keys": {"type": "string", "description": "Keys to simulate (e.g., \"Enter\", \"Ctrl+C\", \"A,B,C\" for sequence)"},
+                "selector": {"type": "string", "description": "CSS selector for the element to send keyboard events to (optional, defaults to active element)"},
                 "delay": {"type": "number", "description": "Delay between key sequences in milliseconds (optional, default: 0)"}
             },
             "required": ["keys"]
@@ -154,11 +234,11 @@ TOOL_SCHEMAS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "Text to search for in history URLs and titles"},
-                "startTime": {"type": "string", "description": "Start time as a date string"},
-                "endTime": {"type": "string", "description": "End time as a date string"},
-                "maxResults": {"type": "number", "description": "Maximum number of history entries to return (default: 100)"},
-                "excludeCurrentTabs": {"type": "boolean", "description": "Filter out URLs that are currently open in any browser tab (default: false)"}
+                "text": {"type": "string", "description": "Text to search for in history URLs and titles. Leave empty to retrieve all history entries within the time range."},
+                "startTime": {"type": "string", "description": "Start time as a date string. Supports ISO format (e.g., \"2023-10-01\", \"2023-10-01T14:30:00\"), relative times (e.g., \"1 day ago\", \"2 weeks ago\", \"3 months ago\", \"1 year ago\"), and special keywords (\"now\", \"today\", \"yesterday\"). Default: 24 hours ago"},
+                "endTime": {"type": "string", "description": "End time as a date string. Supports ISO format (e.g., \"2023-10-31\", \"2023-10-31T14:30:00\"), relative times (e.g., \"1 day ago\", \"2 weeks ago\", \"3 months ago\", \"1 year ago\"), and special keywords (\"now\", \"today\", \"yesterday\"). Default: current time"},
+                "maxResults": {"type": "number", "description": "Maximum number of history entries to return. Use this to limit results for performance or to focus on the most relevant entries. (default: 100)"},
+                "excludeCurrentTabs": {"type": "boolean", "description": "When set to true, filters out URLs that are currently open in any browser tab. Useful for finding pages you've visited but don't have open anymore. (default: false)"}
             },
             "required": []
         }
@@ -169,31 +249,58 @@ TOOL_SCHEMAS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Search query to match against bookmark titles and URLs"},
+                "query": {"type": "string", "description": "Search query to match against bookmark titles and URLs. Leave empty to retrieve all bookmarks."},
                 "maxResults": {"type": "number", "description": "Maximum number of bookmarks to return (default: 50)"},
-                "folderPath": {"type": "string", "description": "Optional folder path or ID to limit search to a specific bookmark folder"}
+                "folderPath": {"type": "string", "description": "Optional folder path or ID to limit search to a specific bookmark folder. Can be a path string (e.g., \"Work/Projects\") or a folder ID."}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": ToolNames.BOOKMARK_ADD,
+        "description": "Add a new bookmark to Chrome",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to bookmark. If not provided, uses the current active tab URL."},
+                "title": {"type": "string", "description": "Title for the bookmark. If not provided, uses the page title from the URL."},
+                "parentId": {"type": "string", "description": "Parent folder path or ID to add the bookmark to. Can be a path string (e.g., \"Work/Projects\") or a folder ID. If not provided, adds to the \"Bookmarks Bar\" folder."},
+                "createFolder": {"type": "boolean", "description": "Whether to create the parent folder if it does not exist (default: false)"}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": ToolNames.BOOKMARK_DELETE,
+        "description": "Delete a bookmark from Chrome",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "bookmarkId": {"type": "string", "description": "ID of the bookmark to delete. Either bookmarkId or url must be provided."},
+                "url": {"type": "string", "description": "URL of the bookmark to delete. Used if bookmarkId is not provided."},
+                "title": {"type": "string", "description": "Title of the bookmark to help with matching when deleting by URL."}
             },
             "required": []
         }
     },
     {
         "name": ToolNames.SEARCH_TABS_CONTENT,
-        "description": "search for related content from the currently open tab and return the corresponding web pages",
+        "description": "search for related content from the currently open tab and return the corresponding web pages.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "the query to search for related content"}
+                "query": {"type": "string", "description": "the query to search for related content."}
             },
             "required": ["query"]
         }
     },
     {
         "name": ToolNames.INJECT_SCRIPT,
-        "description": "inject the user-specified content script into the webpage",
+        "description": "inject the user-specified content script into the webpage. By default, inject into the currently active tab",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "If a URL is specified, inject the script into the webpage corresponding to the URL"},
+                "url": {"type": "string", "description": "If a URL is specified, inject the script into the webpage corresponding to the URL."},
                 "type": {"type": "string", "description": "the javaScript world for a script to execute within. must be ISOLATED or MAIN"},
                 "jsScript": {"type": "string", "description": "the content script to inject"}
             },
@@ -201,12 +308,25 @@ TOOL_SCHEMAS = [
         }
     },
     {
-        "name": ToolNames.CONSOLE,
-        "description": "Capture and retrieve all console output from the current active browser tab/page",
+        "name": ToolNames.SEND_COMMAND_TO_INJECT_SCRIPT,
+        "description": "if the script injected using chrome_inject_script listens for user-defined events, this tool can be used to trigger those events",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "URL to navigate to and capture console from"},
+                "tabId": {"type": "number", "description": "the tab where you previously injected the script(if not provided,  use the currently active tab)"},
+                "eventName": {"type": "string", "description": "the eventName your injected content script listen for"},
+                "payload": {"type": "string", "description": "the payload passed to event, must be a json string"}
+            },
+            "required": ["eventName"]
+        }
+    },
+    {
+        "name": ToolNames.CONSOLE,
+        "description": "Capture and retrieve all console output from the current active browser tab/page. This captures console messages that existed before the tool was called.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to navigate to and capture console from. If not provided, uses the current active tab"},
                 "includeExceptions": {"type": "boolean", "description": "Include uncaught exceptions in the output (default: true)"},
                 "maxMessages": {"type": "number", "description": "Maximum number of console messages to capture (default: 100)"}
             },

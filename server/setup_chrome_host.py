@@ -13,6 +13,8 @@ from pathlib import Path
 
 from constants import HOST_NAME, EXTENSION_ID, DESCRIPTION
 
+from constants import HOST_NAME, EXTENSION_ID, DESCRIPTION
+
 
 def get_chrome_manifest_dir():
     """Get the Chrome native messaging manifest directory"""

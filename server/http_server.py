@@ -159,7 +159,7 @@ class Server:
 
                 # Handle list-tools request
                 elif message.get("method") == "tools/list":
-                    tools = await mcp_server_instance.server.list_tools()
+                    tools = await mcp_server_instance.get_tools_list()
                     return {
                         "jsonrpc": "2.0",
                         "id": message.get("id"),
