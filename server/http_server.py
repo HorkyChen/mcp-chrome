@@ -120,12 +120,17 @@ class Server:
             session_id: str = Query(None)
         ):
             """Handle SSE POST messages"""
+            client_ip = request.client.host if request.client else "unknown"
+            self.logger.info(f"🌐 HTTP POST /messages from {client_ip}, session: {session_id}")
+
             if not session_id:
+                self.logger.error("❌ HTTP POST /messages missing session ID")
                 raise HTTPException(
                     status_code=HTTPStatus.BAD_REQUEST,
                     detail="Missing session ID"
                 )
 
+            self.logger.info(f"✅ HTTP POST /messages processed for session: {session_id}")
             # In a full implementation, this would handle MCP message routing
             return {"status": "received"}
 
@@ -133,23 +138,36 @@ class Server:
         async def mcp_post(request: Request):
             """Handle MCP client-to-server messages"""
             session_id = request.headers.get("mcp-session-id")
+            client_ip = request.client.host if request.client else "unknown"
+
+            self.logger.info(f"🌐 HTTP MCP request from {client_ip}, session: {session_id}")
+
             body = await request.body()
+            self.logger.info(f"🌐 HTTP request body size: {len(body)} bytes")
 
             try:
                 # Parse JSON body
                 message = json.loads(body.decode('utf-8'))
+                method = message.get("method")
+                msg_id = message.get("id")
+
+                self.logger.info(f"🌐 HTTP MCP message: method={method}, id={msg_id}")
+                self.logger.info(f"🌐 HTTP MCP message content: {json.dumps(message, indent=2)}")
 
                 # Handle initialize request
-                if message.get("method") == "initialize":
+                if method == "initialize":
+                    self.logger.info("🔧 HTTP MCP client initialization request")
                     if not session_id:
                         session_id = str(uuid.uuid4())
+                        self.logger.info(f"🔧 Generated new session ID: {session_id}")
 
                     # Store session
                     self.transports_map[session_id] = {"initialized": True}
+                    self.logger.info(f"✅ HTTP MCP session {session_id} initialized")
 
                     return {
                         "jsonrpc": "2.0",
-                        "id": message.get("id"),
+                        "id": msg_id,
                         "result": {
                             "protocolVersion": "2024-11-05",
                             "capabilities": {
@@ -163,37 +181,65 @@ class Server:
                     }
 
                 # Handle list-tools request
-                elif message.get("method") == "tools/list":
+                elif method == "tools/list":
+                    self.logger.info("📋 HTTP MCP client requested tools/list")
                     tools = await mcp_server_instance.get_tools_list()
+                    self.logger.info(f"📋 HTTP returning {len(tools)} tools: {[tool.name for tool in tools]}")
                     return {
                         "jsonrpc": "2.0",
-                        "id": message.get("id"),
+                        "id": msg_id,
                         "result": {
                             "tools": [tool.model_dump() for tool in tools]
                         }
                     }
 
                 # Handle tool call request
-                elif message.get("method") == "tools/call":
+                elif method == "tools/call":
                     params = message.get("params", {})
                     name = params.get("name")
                     arguments = params.get("arguments", {})
 
+                    self.logger.info(f"🔧 HTTP MCP client requested tools/call: {name}")
+                    self.logger.info(f"🔧 HTTP tool arguments: {arguments}")
+
                     result = await mcp_server_instance.handle_tool_call(name, arguments)
+
+                    if result.isError:
+                        self.logger.error(f"❌ HTTP tool call failed: {name}")
+                    else:
+                        self.logger.info(f"✅ HTTP tool call successful: {name}")
+
                     return {
                         "jsonrpc": "2.0",
-                        "id": message.get("id"),
+                        "id": msg_id,
                         "result": result.model_dump()
                     }
 
                 # Handle other MCP requests
+                else:
+                    self.logger.warning(f"⚠️ HTTP Unknown MCP method: {method}")
+                    self.logger.warning(f"⚠️ HTTP Unknown request content: {message}")
+
                 return {"status": "processed"}
 
-            except Exception as e:
-                self.logger.error(f"MCP request processing error: {e}")
+            except json.JSONDecodeError as e:
+                self.logger.error(f"❌ HTTP JSON decode error: {e}")
+                self.logger.error(f"❌ HTTP Invalid JSON body: {body}")
                 return {
                     "jsonrpc": "2.0",
-                    "id": message.get("id") if 'message' in locals() else None,
+                    "id": None,
+                    "error": {
+                        "code": -32700,
+                        "message": "Parse error",
+                        "data": str(e)
+                    }
+                }
+            except Exception as e:
+                self.logger.error(f"❌ HTTP MCP request processing error: {e}")
+                self.logger.error(f"❌ HTTP Error processing message: {locals().get('message', 'Unknown message')}")
+                return {
+                    "jsonrpc": "2.0",
+                    "id": locals().get('message', {}).get("id"),
                     "error": {
                         "code": -32603,
                         "message": "Internal error",
@@ -205,14 +251,21 @@ class Server:
         async def mcp_get(request: Request):
             """Handle MCP SSE connections"""
             session_id = request.headers.get("mcp-session-id")
+            client_ip = request.client.host if request.client else "unknown"
+
+            self.logger.info(f"🌐 HTTP SSE connection request from {client_ip}, session: {session_id}")
 
             if not session_id or session_id not in self.transports_map:
+                self.logger.error(f"❌ HTTP Invalid SSE session: {session_id}")
                 raise HTTPException(
                     status_code=HTTPStatus.BAD_REQUEST,
                     detail=ErrorMessages.INVALID_SSE_SESSION
                 )
 
+            self.logger.info(f"✅ HTTP SSE connection established for session: {session_id}")
+
             async def event_stream():
+                self.logger.info(f"🔄 HTTP SSE event stream started for session: {session_id}")
                 while True:
                     await asyncio.sleep(1)
                     yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"

@@ -29,20 +29,39 @@ class MCPServer:
         @self.server.list_tools()
         async def list_tools() -> List[Tool]:
             """List available tools"""
-            return [Tool(**schema) for schema in TOOL_SCHEMAS]
+            self.logger.info("📋 MCP Client requested tools list")
+            tools = [Tool(**schema) for schema in TOOL_SCHEMAS]
+            self.logger.info(f"📋 Returning {len(tools)} tools to MCP client: {[tool.name for tool in tools]}")
+            return tools
 
         @self.server.call_tool()
         async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
             """Handle tool calls"""
-            return await self.handle_tool_call(name, arguments)
+            self.logger.info(f"🔧 MCP Client requested tool call: {name}")
+            self.logger.info(f"🔧 Tool arguments: {arguments}")
+
+            result = await self.handle_tool_call(name, arguments)
+
+            if result.isError:
+                self.logger.error(f"❌ Tool call failed: {name} - {result.content[0].text if result.content else 'Unknown error'}")
+            else:
+                self.logger.info(f"✅ Tool call successful: {name}")
+
+            return result
 
     async def get_tools_list(self) -> List[Tool]:
         """Get the list of available tools"""
-        return [Tool(**schema) for schema in TOOL_SCHEMAS]
+        self.logger.info("📋 Internal tools list request")
+        tools = [Tool(**schema) for schema in TOOL_SCHEMAS]
+        self.logger.info(f"📋 Available tools: {[tool.name for tool in tools]}")
+        return tools
 
     async def handle_tool_call(self, name: str, args: Dict[str, Any]) -> CallToolResult:
         """Handle tool call by forwarding to Chrome extension"""
         try:
+            self.logger.info(f"🔄 Forwarding tool call to Chrome extension: {name}")
+            self.logger.info(f"🔄 Arguments being sent: {args}")
+
             # Send request to Chrome extension and wait for response
             response = await native_messaging_host_instance.send_request_to_extension_and_wait(
                 {"name": name, "args": args},
@@ -50,12 +69,18 @@ class MCPServer:
                 30000  # 30 second timeout
             )
 
+            self.logger.info(f"✅ Received response from Chrome extension for tool {name}")
+            self.logger.info(f"📤 Response data: {response}")
+
             return CallToolResult(
                 content=[TextContent(type="text", text=str(response))],
                 isError=False
             )
 
         except Exception as e:
+            self.logger.error(f"❌ Error handling tool call {name}: {str(e)}")
+            self.logger.error(f"❌ Tool arguments: {args}")
+
             return CallToolResult(
                 content=[TextContent(type="text", text=f"Error calling tool: {str(e)}")],
                 isError=True
