@@ -146,7 +146,7 @@ class Server:
                         "jsonrpc": "2.0",
                         "id": message.get("id"),
                         "result": {
-                            "protocolVersion": "1.0.0",
+                            "protocolVersion": "2024-11-05",
                             "capabilities": {
                                 "tools": {}
                             },
