@@ -17,8 +17,8 @@ from pathlib import Path
 from constants import HOST_NAME, EXTENSION_ID, DESCRIPTION
 from logging_config import setup_logging, get_logger
 
-# Setup logging for CLI
-setup_logging("mcp-chrome-bridge-cli", level=logging.INFO)
+# Setup logging for CLI - file only to avoid stdio conflicts
+setup_logging("mcp-chrome-bridge-cli", level=logging.INFO, file_only=True)
 logger = get_logger(__name__)
 
 

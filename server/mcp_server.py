@@ -17,8 +17,8 @@ class MCPServer:
     def __init__(self):
         self.server = Server("ChromeMcpServer", "1.0.0")
 
-        # Configure logging for MCP server
-        setup_logging("mcp-chrome-bridge-mcp", level=logging.INFO)
+        # Configure logging for MCP server - file only to avoid stdio conflicts
+        setup_logging("mcp-chrome-bridge-mcp", level=logging.INFO, file_only=True)
         self.logger = get_logger(__name__)
 
         self.setup_handlers()

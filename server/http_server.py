@@ -27,8 +27,8 @@ class Server:
         self.native_host = None
         self.transports_map: Dict[str, Any] = {}
 
-        # Configure logging for HTTP server
-        setup_logging("mcp-chrome-bridge-http", level=logging.INFO)
+        # Configure logging for HTTP server - file only to avoid stdio conflicts
+        setup_logging("mcp-chrome-bridge-http", level=logging.INFO, file_only=True)
         self.logger = get_logger(__name__)
 
         self.server_task: Optional[asyncio.Task] = None

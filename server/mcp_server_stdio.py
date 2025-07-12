@@ -16,8 +16,8 @@ from mcp.types import Tool, TextContent, CallToolResult
 from tools import TOOL_SCHEMAS
 from logging_config import setup_logging, get_logger
 
-# Setup logging for stdio server
-setup_logging("mcp-chrome-bridge-stdio", level=logging.INFO)
+# Setup logging for stdio server - file only to avoid stdio conflicts
+setup_logging("mcp-chrome-bridge-stdio", level=logging.INFO, file_only=True)
 logger = get_logger(__name__)
 
 

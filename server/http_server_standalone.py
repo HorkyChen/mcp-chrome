@@ -11,8 +11,8 @@ from http_server import server_instance
 from constants import NATIVE_SERVER_PORT, HOST
 from logging_config import setup_logging, get_logger
 
-# Setup logging for standalone server
-setup_logging("mcp-chrome-bridge-standalone", level=logging.INFO)
+# Setup logging for standalone server - file only to avoid stdio conflicts
+setup_logging("mcp-chrome-bridge-standalone", level=logging.INFO, file_only=True)
 logger = get_logger(__name__)
 
 

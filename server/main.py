@@ -11,8 +11,8 @@ from http_server import server_instance
 from native_messaging_host import native_messaging_host_instance
 from logging_config import setup_logging, get_logger
 
-# Setup logging for main process
-setup_logging("mcp-chrome-bridge-main", level=logging.INFO)
+# Setup logging for main process - file only to avoid stdio conflicts
+setup_logging("mcp-chrome-bridge-main", level=logging.INFO, file_only=True)
 logger = get_logger(__name__)
 
 
