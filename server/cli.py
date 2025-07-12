@@ -15,10 +15,11 @@ import sys
 from pathlib import Path
 
 from constants import HOST_NAME, EXTENSION_ID, DESCRIPTION
+from logging_config import setup_logging, get_logger
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup logging for CLI
+setup_logging("mcp-chrome-bridge-cli", level=logging.INFO)
+logger = get_logger(__name__)
 
 
 def get_python_path():

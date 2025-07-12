@@ -9,13 +9,11 @@ import signal
 import logging
 from http_server import server_instance
 from native_messaging_host import native_messaging_host_instance
+from logging_config import setup_logging, get_logger
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Setup logging for main process
+setup_logging("mcp-chrome-bridge-main", level=logging.INFO)
+logger = get_logger(__name__)
 
 
 async def main():

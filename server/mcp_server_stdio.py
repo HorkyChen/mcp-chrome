@@ -14,10 +14,11 @@ from mcp.server.stdio import StdioServerTransport
 from mcp.server import Server
 from mcp.types import Tool, TextContent, CallToolResult
 from tools import TOOL_SCHEMAS
+from logging_config import setup_logging, get_logger
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup logging for stdio server
+setup_logging("mcp-chrome-bridge-stdio", level=logging.INFO)
+logger = get_logger(__name__)
 
 
 def load_config():

@@ -10,6 +10,7 @@ import uuid
 from typing import Dict, Any, Optional, Callable
 import logging
 from constants import NativeMessageType, DEFAULT_REQUEST_TIMEOUT
+from logging_config import setup_logging, get_logger
 
 
 class PendingRequest:
@@ -23,7 +24,11 @@ class NativeMessagingHost:
         self.associated_server = None
         self.pending_requests: Dict[str, PendingRequest] = {}
         self.running = False
-        self.logger = logging.getLogger(__name__)
+
+        # Configure logging specifically for native messaging host
+        # Use file_only=True to completely avoid any console output that could interfere with stdio communication
+        setup_logging("mcp-chrome-bridge-native", level=logging.INFO, file_only=True)
+        self.logger = get_logger(__name__)
 
     def set_server(self, server_instance):
         """Associate server instance"""
@@ -231,21 +236,37 @@ class NativeMessagingHost:
             message_bytes = message_json.encode('utf-8')
             length_bytes = struct.pack('<I', len(message_bytes))
 
-            # Write to stdout
-            sys.stdout.buffer.write(length_bytes + message_bytes)
-            sys.stdout.buffer.flush()
-            self.logger.info(f"✅ Message sent successfully ({len(message_bytes)} bytes)")
+            # Write to stdout - handle BrokenPipeError gracefully
+            try:
+                sys.stdout.buffer.write(length_bytes + message_bytes)
+                sys.stdout.buffer.flush()
+                self.logger.info(f"✅ Message sent successfully ({len(message_bytes)} bytes)")
+            except BrokenPipeError:
+                # Chrome extension disconnected - this is expected
+                self.logger.info("🔌 Chrome extension disconnected (BrokenPipeError in send_message)")
+                self.running = False
+                return
+            except OSError as os_error:
+                # Handle other OS-level pipe errors
+                self.logger.info(f"🔌 Chrome extension disconnected (OSError: {os_error})")
+                self.running = False
+                return
 
         except Exception as e:
             self.logger.error(f"❌ Failed to send message: {e}")
+            # Don't try to send error message if we're already having pipe issues
+            if self.running:
+                self.running = False
 
     def send_error(self, error_message: str):
         """Send error message to Chrome extension"""
         self.logger.error(f"🚨 Sending error to Chrome extension: {error_message}")
-        self.send_message({
-            "type": NativeMessageType.ERROR_FROM_NATIVE_HOST.value,
-            "payload": {"message": error_message}
-        })
+        # Only try to send error message if we're still connected
+        if self.running:
+            self.send_message({
+                "type": NativeMessageType.ERROR_FROM_NATIVE_HOST.value,
+                "payload": {"message": error_message}
+            })
 
     async def cleanup(self):
         """Clean up resources"""

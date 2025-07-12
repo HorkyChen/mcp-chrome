@@ -17,6 +17,7 @@ from constants import (
     EXTENSION_REQUEST_TIMEOUT
 )
 from mcp_server import mcp_server_instance
+from logging_config import setup_logging, get_logger
 
 
 class Server:
@@ -25,7 +26,11 @@ class Server:
         self.is_running = False
         self.native_host = None
         self.transports_map: Dict[str, Any] = {}
-        self.logger = logging.getLogger(__name__)
+
+        # Configure logging for HTTP server
+        setup_logging("mcp-chrome-bridge-http", level=logging.INFO)
+        self.logger = get_logger(__name__)
+
         self.server_task: Optional[asyncio.Task] = None
         self.setup_middleware()
         self.setup_routes()

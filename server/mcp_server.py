@@ -10,12 +10,17 @@ from mcp.types import Tool, TextContent, CallToolResult
 from tools import TOOL_SCHEMAS
 from native_messaging_host import native_messaging_host_instance
 from constants import NativeMessageType
+from logging_config import setup_logging, get_logger
 
 
 class MCPServer:
     def __init__(self):
         self.server = Server("ChromeMcpServer", "1.0.0")
-        self.logger = logging.getLogger(__name__)
+
+        # Configure logging for MCP server
+        setup_logging("mcp-chrome-bridge-mcp", level=logging.INFO)
+        self.logger = get_logger(__name__)
+
         self.setup_handlers()
 
     def setup_handlers(self):
