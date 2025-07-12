@@ -157,16 +157,44 @@ class Server:
                         }
                     }
 
+                # Handle list-tools request
+                elif message.get("method") == "tools/list":
+                    tools = await mcp_server_instance.server.list_tools()
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": message.get("id"),
+                        "result": {
+                            "tools": [tool.model_dump() for tool in tools]
+                        }
+                    }
+
+                # Handle tool call request
+                elif message.get("method") == "tools/call":
+                    params = message.get("params", {})
+                    name = params.get("name")
+                    arguments = params.get("arguments", {})
+
+                    result = await mcp_server_instance.handle_tool_call(name, arguments)
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": message.get("id"),
+                        "result": result.model_dump()
+                    }
+
                 # Handle other MCP requests
-                # This is a simplified implementation
-                # In a full implementation, you would integrate with the MCP server properly
                 return {"status": "processed"}
 
             except Exception as e:
-                raise HTTPException(
-                    status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                    detail=ErrorMessages.MCP_REQUEST_PROCESSING_ERROR
-                )
+                self.logger.error(f"MCP request processing error: {e}")
+                return {
+                    "jsonrpc": "2.0",
+                    "id": message.get("id") if 'message' in locals() else None,
+                    "error": {
+                        "code": -32603,
+                        "message": "Internal error",
+                        "data": str(e)
+                    }
+                }
 
         @self.app.get("/mcp")
         async def mcp_get(request: Request):

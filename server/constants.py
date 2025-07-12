@@ -54,3 +54,9 @@ class ErrorMessages:
     MCP_SESSION_DELETION_ERROR = "Internal server error during MCP session deletion."
     MCP_REQUEST_PROCESSING_ERROR = "Internal server error during MCP request processing."
     INVALID_SSE_SESSION = "Invalid or missing MCP session ID for SSE."
+
+
+# Native messaging host configuration
+HOST_NAME = "com.chromemcp.nativehost"
+EXTENSION_ID = "hbdgbgagpkpjffpklnamcljpakneikee"
+DESCRIPTION = "MCP Chrome Bridge Python"

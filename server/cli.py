@@ -14,6 +14,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from constants import HOST_NAME, EXTENSION_ID, DESCRIPTION
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -66,12 +68,12 @@ def create_manifest():
     python_executable = get_python_path()
 
     manifest = {
-        "name": "com.github.mcp_chrome_bridge_python",
-        "description": "MCP Chrome Bridge Python",
+        "name": HOST_NAME,
+        "description": DESCRIPTION,
         "path": str(script_dir / "main.py"),
         "type": "stdio",
         "allowed_origins": [
-            "chrome-extension://ndfbdlheogcbmpodmjbhijieeohkcflg/"
+            f"chrome-extension://{EXTENSION_ID}/"
         ]
     }
 
@@ -89,7 +91,7 @@ def register_host(force=False, system_level=False):
         # Create directory if it doesn't exist
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        manifest_file = target_dir / "com.github.mcp_chrome_bridge_python.json"
+        manifest_file = target_dir / f"{HOST_NAME}.json"
 
         if manifest_file.exists() and not force:
             print(f"Manifest already exists at {manifest_file}")
@@ -114,18 +116,68 @@ def register_host(force=False, system_level=False):
         sys.exit(1)
 
 
+def check_registration_status():
+    """Check native messaging host registration status"""
+    try:
+        manifest_paths = get_manifest_path()
+
+        user_manifest = Path(manifest_paths["user"]) / f"{HOST_NAME}.json"
+        system_manifest = Path(manifest_paths["system"]) / f"{HOST_NAME}.json"
+
+        user_registered = user_manifest.exists()
+        system_registered = system_manifest.exists()
+
+        print("📋 Native Messaging Host Registration Status:")
+        print(f"  User-level:   {'Registered ✓' if user_registered else 'Not registered ✗'}")
+        print(f"  System-level: {'Registered ✓' if system_registered else 'Not registered ✗'}")
+
+        if user_registered:
+            print(f"  User manifest:   {user_manifest}")
+        if system_registered:
+            print(f"  System manifest: {system_manifest}")
+
+        if not user_registered and not system_registered:
+            print("\n📝 To register:")
+            print("  User-level:   python cli.py register")
+            print("  System-level: python cli.py register --system")
+        else:
+            print("\n📝 To unregister:")
+            if user_registered:
+                print("  User-level:   python cli.py unregister")
+            if system_registered:
+                print("  System-level: python cli.py unregister --system")
+
+        return {"user": user_registered, "system": system_registered}
+
+    except Exception as e:
+        print(f"❌ Failed to check registration status: {e}")
+        return {"user": False, "system": False}
+
+
 def unregister_host(system_level=False):
     """Unregister native messaging host"""
     try:
+        # First check what's currently registered
+        print("🔍 Checking current registration status...")
+        status = check_registration_status()
+
         manifest_paths = get_manifest_path()
         target_dir = Path(manifest_paths["system"] if system_level else manifest_paths["user"])
-        manifest_file = target_dir / "com.github.mcp_chrome_bridge_python.json"
+        manifest_file = target_dir / f"{HOST_NAME}.json"
+
+        level_name = "system-level" if system_level else "user-level"
 
         if manifest_file.exists():
             manifest_file.unlink()
-            print(f"✓ Native messaging host unregistered from {manifest_file}")
+            print(f"✓ {level_name.capitalize()} native messaging host unregistered from {manifest_file}")
         else:
-            print(f"No manifest found at {manifest_file}")
+            print(f"⚠️ No {level_name} manifest found at {manifest_file}")
+
+        # Check if other level still exists
+        other_level = "system" if not system_level else "user"
+        if status[other_level]:
+            print(f"📝 Note: {other_level.capitalize()}-level registration still exists.")
+            print(f"   To remove it, run: python cli.py unregister {'--system' if other_level == 'system' else ''}")
 
     except Exception as e:
         print(f"❌ Failed to unregister native messaging host: {e}")
@@ -147,8 +199,11 @@ def main():
     register_parser.add_argument("-s", "--system", action="store_true", help="Use system-level installation")
 
     # Unregister command
-    unregister_parser = subparsers.add_parser("unregisMock response from standalone serverter", help="Unregister native messaging host")
-    unregister_parser.add_argument("-s", "--system", action="store_true", help="Remove from system-level")    # Start command
+    unregister_parser = subparsers.add_parser("unregister", help="Unregister native messaging host")
+    unregister_parser.add_argument("-s", "--system", action="store_true", help="Remove from system-level")
+
+    # Status command
+    status_parser = subparsers.add_parser("status", help="Check native messaging host registration status")    # Start command
     start_parser = subparsers.add_parser("start", help="Start the MCP server")
 
     # Start HTTP server only
@@ -165,6 +220,8 @@ def main():
         register_host(force=args.force, system_level=args.system)
     elif args.command == "unregister":
         unregister_host(system_level=args.system)
+    elif args.command == "status":
+        check_registration_status()
     elif args.command == "start":
         from main import main as start_main
         try:

@@ -11,6 +11,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from constants import HOST_NAME, EXTENSION_ID, DESCRIPTION
+
 
 def get_chrome_manifest_dir():
     """Get the Chrome native messaging manifest directory"""
@@ -65,12 +67,12 @@ def create_manifest():
     run_script_path = create_run_script()
 
     manifest = {
-        "name": "com.github.mcp_chrome_bridge_python",
-        "description": "MCP Chrome Bridge Python - Native Messaging Host",
+        "name": HOST_NAME,
+        "description": f"{DESCRIPTION} - Native Messaging Host",
         "path": run_script_path,
         "type": "stdio",
         "allowed_origins": [
-            "chrome-extension://bhgdgbgakpjpffkpnlmalcpjkaenkiee/"
+            f"chrome-extension://{EXTENSION_ID}/"
         ]
     }
 
@@ -88,14 +90,14 @@ def install_manifest(system_level=False):
 
         # Create manifest
         manifest = create_manifest()
-        manifest_file = target_dir / "com.github.mcp_chrome_bridge_python.json"
+        manifest_file = target_dir / f"{HOST_NAME}.json"
 
         with open(manifest_file, 'w') as f:
             json.dump(manifest, f, indent=2)
 
         print(f"✓ Manifest installed at: {manifest_file}")
         print(f"✓ Run script created at: {manifest['path']}")
-        print(f"✓ Extension ID: ndfbdlheogcbmpodmjbhijieeohkcflg")
+        print(f"✓ Extension ID: {EXTENSION_ID}")
 
         return True
 
