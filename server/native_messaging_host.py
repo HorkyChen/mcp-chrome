@@ -63,7 +63,7 @@ class NativeMessagingHost:
                     break
 
                 message_length = struct.unpack('<I', length_data)[0]
-                self.logger.info(f"📨 Received message from Chrome extension, length: {message_length} bytes")
+                self.logger.info(f"Received message from Chrome extension, length: {message_length} bytes")
 
                 # Read message content
                 message_data = await reader.readexactly(message_length)
@@ -73,36 +73,36 @@ class NativeMessagingHost:
 
                 try:
                     message = json.loads(message_data.decode('utf-8'))
-                    self.logger.info(f"📋 Parsed message from Chrome extension: {json.dumps(message, indent=2)}")
+                    self.logger.info(f"Parsed message from Chrome extension: {json.dumps(message, indent=2)}")
                     await self.handle_message(message)
                 except json.JSONDecodeError as e:
-                    self.logger.error(f"❌ Failed to parse JSON message: {e}")
+                    self.logger.error(f"Failed to parse JSON message: {e}")
                     self.send_error(f"Failed to parse message: {e}")
 
         except asyncio.IncompleteReadError:
             # Chrome extension disconnected
-            self.logger.info("🔌 Chrome extension disconnected (IncompleteReadError)")
+            self.logger.info("Chrome extension disconnected (IncompleteReadError)")
             pass
         except Exception as e:
-            self.logger.error(f"❌ Error in message handling: {e}")
+            self.logger.error(f"Error in message handling: {e}")
         finally:
-            self.logger.info("🧹 Cleaning up native messaging host resources")
+            self.logger.info("Cleaning up native messaging host resources")
             transport.close()
             await self.cleanup()
 
     async def handle_message(self, message: Dict[str, Any]):
         """Handle incoming message from Chrome extension"""
-        self.logger.info(f"🔍 Processing message from Chrome extension...")
+        self.logger.info(f"Processing message from Chrome extension...")
 
         if not isinstance(message, dict):
-            self.logger.error("❌ Invalid message format - not a dictionary")
+            self.logger.error("Invalid message format - not a dictionary")
             self.send_error("Invalid message format")
             return
 
         # Handle response to our request
         if "responseToRequestId" in message:
             request_id = message["responseToRequestId"]
-            self.logger.info(f"📤 Received response for request ID: {request_id}")
+            self.logger.info(f"Received response for request ID: {request_id}")
             if request_id in self.pending_requests:
                 pending = self.pending_requests[request_id]
                 pending.timeout_handle.cancel()
@@ -118,25 +118,25 @@ class NativeMessagingHost:
         # Handle directive messages
         try:
             message_type = message.get("type")
-            self.logger.info(f"🎯 Processing directive message of type: '{message_type}'")
+            self.logger.info(f"Processing directive message of type: '{message_type}'")
 
             if message_type == NativeMessageType.START.value:
                 port = message.get("payload", {}).get("port", 12306)  # Use default port 12306
-                self.logger.info(f"🚀 Chrome extension requesting server START on port: {port}")
+                self.logger.info(f"Chrome extension requesting server START on port: {port}")
                 await self.start_server(port)
             elif message_type == NativeMessageType.STOP.value:
-                self.logger.info("🛑 Chrome extension requesting server STOP")
+                self.logger.info("Chrome extension requesting server STOP")
                 await self.stop_server()
             elif message_type == "ping_from_extension":
-                self.logger.info("🏓 Received ping from Chrome extension")
+                self.logger.info("Received ping from Chrome extension")
                 self.send_message({"type": "pong_to_extension"})
             else:
                 if "responseToRequestId" not in message:
-                    self.logger.warning(f"⚠️ Unknown message type: '{message_type}'")
+                    self.logger.warning(f"Unknown message type: '{message_type}'")
                     self.send_error(f"Unknown message type: {message_type}")
 
         except Exception as e:
-            self.logger.error(f"❌ Failed to handle directive message: {e}")
+            self.logger.error(f"Failed to handle directive message: {e}")
             self.send_error(f"Failed to handle directive message: {e}")
 
     async def send_request_to_extension_and_wait(
@@ -174,17 +174,17 @@ class NativeMessagingHost:
 
     async def start_server(self, port: int):
         """Start HTTP server (or confirm it's already running)"""
-        self.logger.info(f"🔧 Processing start_server request for port: {port}")
+        self.logger.info(f"Processing start_server request for port: {port}")
 
         if not self.associated_server:
-            self.logger.error("❌ No associated server instance found")
+            self.logger.error("No associated server instance found")
             self.send_error("Internal error: server instance not set")
             return
 
         try:
             if self.associated_server.is_running:
                 # Server is already running, just confirm
-                self.logger.info(f"✅ HTTP server already running on port {port}, sending confirmation")
+                self.logger.info(f"HTTP server already running on port {port}, sending confirmation")
                 self.send_message({
                     "type": NativeMessageType.SERVER_STARTED.value,
                     "payload": {"port": port, "message": "Server was already running"}
@@ -192,10 +192,10 @@ class NativeMessagingHost:
                 return
 
             # Try to start the server if it's not running
-            self.logger.info(f"🚀 Starting HTTP server on port {port}")
+            self.logger.info(f"Starting HTTP server on port {port}")
             await self.associated_server.start(port, self)
 
-            self.logger.info(f"✅ HTTP server started successfully on port {port}")
+            self.logger.info(f"HTTP server started successfully on port {port}")
             self.send_message({
                 "type": NativeMessageType.SERVER_STARTED.value,
                 "payload": {"port": port}
@@ -231,7 +231,7 @@ class NativeMessagingHost:
     def send_message(self, message: Dict[str, Any]):
         """Send message to Chrome extension"""
         try:
-            self.logger.info(f"📤 Sending message to Chrome extension: {json.dumps(message, indent=2)}")
+            self.logger.info(f"Sending message to Chrome extension: {json.dumps(message, indent=2)}")
             message_json = json.dumps(message)
             message_bytes = message_json.encode('utf-8')
             length_bytes = struct.pack('<I', len(message_bytes))
@@ -240,27 +240,27 @@ class NativeMessagingHost:
             try:
                 sys.stdout.buffer.write(length_bytes + message_bytes)
                 sys.stdout.buffer.flush()
-                self.logger.info(f"✅ Message sent successfully ({len(message_bytes)} bytes)")
+                self.logger.info(f"Message sent successfully ({len(message_bytes)} bytes)")
             except BrokenPipeError:
                 # Chrome extension disconnected - this is expected
-                self.logger.info("🔌 Chrome extension disconnected (BrokenPipeError in send_message)")
+                self.logger.info("Chrome extension disconnected (BrokenPipeError in send_message)")
                 self.running = False
                 return
             except OSError as os_error:
                 # Handle other OS-level pipe errors
-                self.logger.info(f"🔌 Chrome extension disconnected (OSError: {os_error})")
+                self.logger.info(f"Chrome extension disconnected (OSError: {os_error})")
                 self.running = False
                 return
 
         except Exception as e:
-            self.logger.error(f"❌ Failed to send message: {e}")
+            self.logger.error(f"Failed to send message: {e}")
             # Don't try to send error message if we're already having pipe issues
             if self.running:
                 self.running = False
 
     def send_error(self, error_message: str):
         """Send error message to Chrome extension"""
-        self.logger.error(f"🚨 Sending error to Chrome extension: {error_message}")
+        self.logger.error(f"Sending error to Chrome extension: {error_message}")
         # Only try to send error message if we're still connected
         if self.running:
             self.send_message({
@@ -270,13 +270,13 @@ class NativeMessagingHost:
 
     async def cleanup(self):
         """Clean up resources"""
-        self.logger.info("🧹 Starting cleanup process...")
+        self.logger.info("Starting cleanup process...")
         self.running = False
 
         # Reject all pending requests
         pending_count = len(self.pending_requests)
         if pending_count > 0:
-            self.logger.info(f"🔄 Rejecting {pending_count} pending requests")
+            self.logger.info(f"Rejecting {pending_count} pending requests")
 
         for pending in self.pending_requests.values():
             pending.timeout_handle.cancel()
@@ -288,8 +288,8 @@ class NativeMessagingHost:
 
         # Do NOT stop the HTTP server automatically when Chrome disconnects
         # The server should remain running independently for other clients
-        self.logger.info("✅ Chrome extension disconnected, but HTTP server will continue running")
-        self.logger.info("🔄 Native messaging host ready for next connection")
+        self.logger.info("Chrome extension disconnected, but HTTP server will continue running")
+        self.logger.info("Native messaging host ready for next connection")
 
 
 # Global instance

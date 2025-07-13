@@ -1,0 +1,32 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:12306 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:12306...
+* connect to ::1 port 12306 from ::1 port 55396 failed: Connection refused
+*   Trying 127.0.0.1:12306...
+* Connected to localhost (127.0.0.1) port 12306
+> POST /mcp HTTP/1.1
+> Host: localhost:12306
+> User-Agent: curl/8.5.0
+> Content-Type: application/json
+> Accept: application/json, text/event-stream
+> Content-Length: 243
+> 
+} [243 bytes data]
+< HTTP/1.1 200 OK
+< Content-Type: text/event-stream
+< Cache-Control: no-cache
+< Connection: keep-alive
+< mcp-session-id: 0aa9d0fe-4728-4b09-b847-455785b76f1c
+< Date: Sat, 12 Jul 2025 16:25:18 GMT
+< Transfer-Encoding: chunked
+< 
+{ [175 bytes data]
+100   418    0   175  100   243  90814   123k --:--:-- --:--:-- --:--:--  408k
+* Connection #0 to host localhost left intact
+event: message
+data: {"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"ChromeMcpServer","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
+

@@ -121,29 +121,34 @@ class Server:
         ):
             """Handle SSE POST messages"""
             client_ip = request.client.host if request.client else "unknown"
-            self.logger.info(f"🌐 HTTP POST /messages from {client_ip}, session: {session_id}")
+            self.logger.info(f"HTTP POST /messages from {client_ip}, session: {session_id}")
 
             if not session_id:
-                self.logger.error("❌ HTTP POST /messages missing session ID")
+                self.logger.error("HTTP POST /messages missing session ID")
                 raise HTTPException(
                     status_code=HTTPStatus.BAD_REQUEST,
                     detail="Missing session ID"
                 )
 
-            self.logger.info(f"✅ HTTP POST /messages processed for session: {session_id}")
+            self.logger.info(f"HTTP POST /messages processed for session: {session_id}")
             # In a full implementation, this would handle MCP message routing
             return {"status": "received"}
 
         @self.app.post("/mcp")
-        async def mcp_post(request: Request):
+        async def mcp_post(request: Request, response: Response):
             """Handle MCP client-to-server messages"""
-            session_id = request.headers.get("mcp-session-id")
+            try:
+                session_id = request.headers.get("mcp-session-id")
+            except Exception as e:
+                self.logger.error(f"Error getting session ID from headers: {e}")
+                session_id = "testing-session-id"
+
             client_ip = request.client.host if request.client else "unknown"
 
-            self.logger.info(f"🌐 HTTP MCP request from {client_ip}, session: {session_id}")
+            self.logger.info(f"HTTP MCP request from {client_ip}, session: {session_id}")
 
             body = await request.body()
-            self.logger.info(f"🌐 HTTP request body size: {len(body)} bytes")
+            self.logger.info(f"HTTP request body size: {len(body)} bytes")
 
             try:
                 # Parse JSON body
@@ -151,19 +156,22 @@ class Server:
                 method = message.get("method")
                 msg_id = message.get("id")
 
-                self.logger.info(f"🌐 HTTP MCP message: method={method}, id={msg_id}")
-                self.logger.info(f"🌐 HTTP MCP message content: {json.dumps(message, indent=2)}")
+                self.logger.info(f"HTTP MCP message: method={method}, id={msg_id}")
+                self.logger.info(f"HTTP MCP message content: {json.dumps(message, indent=2)}")
 
                 # Handle initialize request
                 if method == "initialize":
-                    self.logger.info("🔧 HTTP MCP client initialization request")
+                    self.logger.info("HTTP MCP client initialization request")
                     if not session_id:
                         session_id = str(uuid.uuid4())
-                        self.logger.info(f"🔧 Generated new session ID: {session_id}")
+                        self.logger.info(f"Generated new session ID: {session_id}")
 
                     # Store session
                     self.transports_map[session_id] = {"initialized": True}
-                    self.logger.info(f"✅ HTTP MCP session {session_id} initialized")
+                    self.logger.info(f"HTTP MCP session {session_id} initialized")
+
+                    # Set session ID in response headers (but NOT Content-Type for SSE)
+                    response.headers["mcp-session-id"] = session_id
 
                     return {
                         "jsonrpc": "2.0",
@@ -178,13 +186,14 @@ class Server:
                                 "version": "1.0.0"
                             }
                         }
-                    }
-
-                # Handle list-tools request
+                    }                # Handle list-tools request
                 elif method == "tools/list":
-                    self.logger.info("📋 HTTP MCP client requested tools/list")
+                    self.logger.info("HTTP MCP client requested tools/list")
+                    if session_id:
+                        response.headers["mcp-session-id"] = session_id
+
                     tools = await mcp_server_instance.get_tools_list()
-                    self.logger.info(f"📋 HTTP returning {len(tools)} tools: {[tool.name for tool in tools]}")
+                    self.logger.info(f"HTTP returning {len(tools)} tools: {[tool.name for tool in tools]}")
                     return {
                         "jsonrpc": "2.0",
                         "id": msg_id,
@@ -199,15 +208,18 @@ class Server:
                     name = params.get("name")
                     arguments = params.get("arguments", {})
 
-                    self.logger.info(f"🔧 HTTP MCP client requested tools/call: {name}")
-                    self.logger.info(f"🔧 HTTP tool arguments: {arguments}")
+                    self.logger.info(f"HTTP MCP client requested tools/call: {name}")
+                    self.logger.info(f"HTTP tool arguments: {arguments}")
+
+                    if session_id:
+                        response.headers["mcp-session-id"] = session_id
 
                     result = await mcp_server_instance.handle_tool_call(name, arguments)
 
                     if result.isError:
-                        self.logger.error(f"❌ HTTP tool call failed: {name}")
+                        self.logger.error(f"HTTP tool call failed: {name}")
                     else:
-                        self.logger.info(f"✅ HTTP tool call successful: {name}")
+                        self.logger.info(f"HTTP tool call successful: {name}")
 
                     return {
                         "jsonrpc": "2.0",
@@ -217,14 +229,14 @@ class Server:
 
                 # Handle other MCP requests
                 else:
-                    self.logger.warning(f"⚠️ HTTP Unknown MCP method: {method}")
-                    self.logger.warning(f"⚠️ HTTP Unknown request content: {message}")
+                    self.logger.warning(f"HTTP Unknown MCP method: {method}")
+                    self.logger.warning(f"HTTP Unknown request content: {message}")
 
                 return {"status": "processed"}
 
             except json.JSONDecodeError as e:
-                self.logger.error(f"❌ HTTP JSON decode error: {e}")
-                self.logger.error(f"❌ HTTP Invalid JSON body: {body}")
+                self.logger.error(f"HTTP JSON decode error: {e}")
+                self.logger.error(f"HTTP Invalid JSON body: {body}")
                 return {
                     "jsonrpc": "2.0",
                     "id": None,
@@ -235,8 +247,8 @@ class Server:
                     }
                 }
             except Exception as e:
-                self.logger.error(f"❌ HTTP MCP request processing error: {e}")
-                self.logger.error(f"❌ HTTP Error processing message: {locals().get('message', 'Unknown message')}")
+                self.logger.error(f"HTTP MCP request processing error: {e}")
+                self.logger.error(f"HTTP Error processing message: {locals().get('message', 'Unknown message')}")
                 return {
                     "jsonrpc": "2.0",
                     "id": locals().get('message', {}).get("id"),
@@ -253,19 +265,19 @@ class Server:
             session_id = request.headers.get("mcp-session-id")
             client_ip = request.client.host if request.client else "unknown"
 
-            self.logger.info(f"🌐 HTTP SSE connection request from {client_ip}, session: {session_id}")
+            self.logger.info(f"HTTP SSE connection request from {client_ip}, session: {session_id}")
 
             if not session_id or session_id not in self.transports_map:
-                self.logger.error(f"❌ HTTP Invalid SSE session: {session_id}")
+                self.logger.error(f"HTTP Invalid SSE session: {session_id}")
                 raise HTTPException(
                     status_code=HTTPStatus.BAD_REQUEST,
                     detail=ErrorMessages.INVALID_SSE_SESSION
                 )
 
-            self.logger.info(f"✅ HTTP SSE connection established for session: {session_id}")
+            self.logger.info(f"HTTP SSE connection established for session: {session_id}")
 
             async def event_stream():
-                self.logger.info(f"🔄 HTTP SSE event stream started for session: {session_id}")
+                self.logger.info(f"HTTP SSE event stream started for session: {session_id}")
                 while True:
                     await asyncio.sleep(1)
                     yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
@@ -299,6 +311,39 @@ class Server:
                     status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                     detail=ErrorMessages.MCP_SESSION_DELETION_ERROR
                 )
+
+        @self.app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+        async def catch_all(request: Request, path: str):
+            """Catch all unhandled requests and log them"""
+            client_ip = request.client.host if request.client else "unknown"
+            method = request.method
+            headers = dict(request.headers)
+            query_params = dict(request.query_params)
+
+            self.logger.warning(f"❓ Unhandled request: {method} /{path} from {client_ip}")
+            self.logger.info(f"❓ Request headers: {headers}")
+            self.logger.info(f"❓ Request query params: {query_params}")
+
+            # Try to read body for non-GET requests
+            if method not in ["GET", "HEAD", "OPTIONS"]:
+                try:
+                    body = await request.body()
+                    if body:
+                        self.logger.info(f"❓ Request body size: {len(body)} bytes")
+                        # Try to decode as text for logging (limit to first 500 chars)
+                        try:
+                            body_text = body.decode('utf-8')[:500]
+                            self.logger.info(f"❓ Request body preview: {body_text}")
+                        except UnicodeDecodeError:
+                            self.logger.info(f"❓ Request body (binary): {body[:50]}...")
+                except Exception as e:
+                    self.logger.warning(f"❓ Could not read request body: {e}")
+
+            # Return appropriate error response
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail=f"Endpoint {method} /{path} not found"
+            )
 
     def set_native_host(self, native_host):
         """Associate native messaging host instance"""
