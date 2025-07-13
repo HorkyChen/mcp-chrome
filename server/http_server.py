@@ -137,18 +137,46 @@ class Server:
         @self.app.post("/mcp")
         async def mcp_post(request: Request, response: Response):
             """Handle MCP client-to-server messages"""
-            try:
-                session_id = request.headers.get("mcp-session-id")
-            except Exception as e:
-                self.logger.error(f"Error getting session ID from headers: {e}")
-                session_id = "testing-session-id"
-
             client_ip = request.client.host if request.client else "unknown"
 
-            self.logger.info(f"HTTP MCP request from {client_ip}, session: {session_id}")
+            # Log the incoming request immediately
+            self.logger.info(f"🔄 Incoming MCP request from {client_ip}")
 
-            body = await request.body()
-            self.logger.info(f"HTTP request body size: {len(body)} bytes")
+            try:
+                session_id = request.headers.get("mcp-session-id")
+                self.logger.info(f"🔄 Session ID from headers: {session_id}")
+            except Exception as e:
+                self.logger.error(f"❌ Error getting session ID from headers: {e}")
+                session_id = "testing-session-id"
+
+            self.logger.info(f"🌐 HTTP MCP request from {client_ip}, session: {session_id}")
+
+            try:
+                body = await request.body()
+                self.logger.info(f"🌐 HTTP request body size: {len(body)} bytes")
+
+                if len(body) == 0:
+                    self.logger.error("❌ Empty request body received")
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {
+                            "code": -32700,
+                            "message": "Empty request body",
+                            "data": "No data received"
+                        }
+                    }
+            except Exception as e:
+                self.logger.error(f"❌ Error reading request body: {e}")
+                return {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {
+                        "code": -32700,
+                        "message": "Failed to read request body",
+                        "data": str(e)
+                    }
+                }
 
             try:
                 # Parse JSON body
@@ -170,10 +198,14 @@ class Server:
                     self.transports_map[session_id] = {"initialized": True}
                     self.logger.info(f"HTTP MCP session {session_id} initialized")
 
-                    # Set session ID in response headers (but NOT Content-Type for SSE)
+                    # For initialize, return SSE format response
                     response.headers["mcp-session-id"] = session_id
+                    response.headers["Content-Type"] = "text/event-stream"
+                    response.headers["Cache-Control"] = "no-cache"
+                    response.headers["Connection"] = "keep-alive"
 
-                    return {
+                    # Create SSE formatted response
+                    sse_data = {
                         "jsonrpc": "2.0",
                         "id": msg_id,
                         "result": {
@@ -186,7 +218,18 @@ class Server:
                                 "version": "1.0.0"
                             }
                         }
-                    }                # Handle list-tools request
+                    }
+
+                    return StreamingResponse(
+                        iter([f"event: message\ndata: {json.dumps(sse_data)}\n\n"]),
+                        media_type="text/event-stream",
+                        headers={
+                            "mcp-session-id": session_id,
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive"
+                        }
+                    )
+                # Handle list-tools request
                 elif method == "tools/list":
                     self.logger.info("HTTP MCP client requested tools/list")
                     if session_id:
@@ -194,13 +237,25 @@ class Server:
 
                     tools = await mcp_server_instance.get_tools_list()
                     self.logger.info(f"HTTP returning {len(tools)} tools: {[tool.name for tool in tools]}")
-                    return {
+
+                    # Return SSE format response for tools/list
+                    sse_data = {
                         "jsonrpc": "2.0",
                         "id": msg_id,
                         "result": {
-                            "tools": [tool.model_dump() for tool in tools]
+                            "tools": [tool.model_dump(exclude_none=True) for tool in tools]
                         }
                     }
+
+                    return StreamingResponse(
+                        iter([f"event: message\ndata: {json.dumps(sse_data)}\n\n"]),
+                        media_type="text/event-stream",
+                        headers={
+                            "mcp-session-id": session_id,
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive"
+                        }
+                    )
 
                 # Handle tool call request
                 elif method == "tools/call":
@@ -221,18 +276,38 @@ class Server:
                     else:
                         self.logger.info(f"HTTP tool call successful: {name}")
 
-                    return {
+                    # Return SSE format response for tools/call
+                    sse_data = {
                         "jsonrpc": "2.0",
                         "id": msg_id,
-                        "result": result.model_dump()
+                        "result": result.model_dump(exclude_none=True)
                     }
+
+                    return StreamingResponse(
+                        iter([f"event: message\ndata: {json.dumps(sse_data)}\n\n"]),
+                        media_type="text/event-stream",
+                        headers={
+                            "mcp-session-id": session_id,
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive"
+                        }
+                    )
 
                 # Handle other MCP requests
                 else:
-                    self.logger.warning(f"HTTP Unknown MCP method: {method}")
-                    self.logger.warning(f"HTTP Unknown request content: {message}")
+                    self.logger.warning(f"❓ HTTP Unknown MCP method: {method}")
+                    self.logger.warning(f"❓ HTTP Unknown request content: {json.dumps(message, indent=2)}")
+                    self.logger.warning(f"❓ Available methods: initialize, tools/list, tools/call")
 
-                return {"status": "processed"}
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": msg_id,
+                        "error": {
+                            "code": -32601,
+                            "message": f"Method not found: {method}",
+                            "data": f"Available methods: initialize, tools/list, tools/call"
+                        }
+                    }
 
             except json.JSONDecodeError as e:
                 self.logger.error(f"HTTP JSON decode error: {e}")

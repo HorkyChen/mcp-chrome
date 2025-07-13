@@ -30,9 +30,17 @@ class MCPServer:
         async def list_tools() -> List[Tool]:
             """List available tools"""
             self.logger.info("MCP Client requested tools list")
-            tools = [Tool(**schema) for schema in TOOL_SCHEMAS]
-            self.logger.info(f"Returning {len(tools)} tools to MCP client: {[tool.name for tool in tools]}")
-            return tools
+
+            # Filter out null values from tool schemas
+            filtered_tools = []
+            for schema in TOOL_SCHEMAS:
+                # Remove keys with None/null values
+                filtered_schema = {k: v for k, v in schema.items() if v is not None}
+                tools_obj = Tool(**filtered_schema)
+                filtered_tools.append(tools_obj)
+
+            self.logger.info(f"Returning {len(filtered_tools)} tools to MCP client: {[tool.name for tool in filtered_tools]}")
+            return filtered_tools
 
         @self.server.call_tool()
         async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
@@ -52,9 +60,17 @@ class MCPServer:
     async def get_tools_list(self) -> List[Tool]:
         """Get the list of available tools"""
         self.logger.info("Internal tools list request")
-        tools = [Tool(**schema) for schema in TOOL_SCHEMAS]
-        self.logger.info(f"Available tools: {[tool.name for tool in tools]}")
-        return tools
+
+        # Filter out null values from tool schemas
+        filtered_tools = []
+        for schema in TOOL_SCHEMAS:
+            # Remove keys with None/null values
+            filtered_schema = {k: v for k, v in schema.items() if v is not None}
+            tools_obj = Tool(**filtered_schema)
+            filtered_tools.append(tools_obj)
+
+        self.logger.info(f"Available tools: {[tool.name for tool in filtered_tools]}")
+        return filtered_tools
 
     async def handle_tool_call(self, name: str, args: Dict[str, Any]) -> CallToolResult:
         """Handle tool call by forwarding to Chrome extension"""
